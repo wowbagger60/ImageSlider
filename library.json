@@ -1,0 +1,12 @@
+{
+    "id": "{3DCF6A23-33EF-5746-C766-18A7D951102C}",
+    "name": "Image Slider",
+    "author": "Ueli Schweizer",
+    "url": "https://www.cassanisautomation.fr",
+    "compatibility": {
+        "version": "7.1"
+    },
+    "version": "2.0",
+    "build": 6,
+    "date": 1789639225
+}

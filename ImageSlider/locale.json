@@ -1,0 +1,28 @@
+{
+    "translations": {
+        "de": {
+            "The first album is the default album. Albums and images can be sorted using drag and drop.": "Das erste Album ist das Default-Album. Alben und Bilder können per Drag-and-Drop sortiert werden.",
+            "Albums": "Alben",
+            "Images": "Bilder",
+            "Media": "Medium",
+            "Title": "Titel",
+            "Description": "Beschreibung",
+            "Transition": "Übergang",
+            "No transition": "Kein Übergang",
+            "Fade": "Überblenden",
+            "Slide": "Schieben",
+            "Transition duration": "Übergangsdauer",
+            "Invalid configuration": "Konfiguration ungültig",
+            "Album %d has an invalid configuration.": "Album %d hat eine ungültige Konfiguration.",
+            "Album %d has no name. Please enter an album name or remove the album.": "Album %d hat keinen Namen. Bitte einen Albumnamen eingeben oder das Album entfernen.",
+            "The album name \"%s\" is used more than once. Album names must be unique.": "Der Albumname \"%s\" wird mehrfach verwendet. Albumnamen müssen eindeutig sein.",
+            "Album \"%s\", image %d: No media object is selected. Please select an image or remove the empty entry.": "Album \"%s\", Bild %d: Es ist kein Medienobjekt ausgewählt. Bitte ein Bild auswählen oder den leeren Eintrag entfernen.",
+            "Album \"%s\": MediaID %d is used more than once. Each image may only occur once within an album.": "Album \"%s\": MediaID %d ist mehrfach vorhanden. Jedes Bild darf innerhalb eines Albums nur einmal vorkommen.",
+            "Album \"%s\": MediaID %d does not exist. Please select an existing image media object.": "Album \"%s\": MediaID %d existiert nicht. Bitte ein vorhandenes Bild-Medienobjekt auswählen.",
+            "Album \"%s\": MediaID %d is not an image media object.": "Album \"%s\": MediaID %d ist kein Bild-Medienobjekt.",
+            "Invalid Ident: ": "Ungültiger Ident: ",
+            "No images available": "Keine Bilder vorhanden",
+            "Image gallery": "Bildergalerie"
+        }
+    }
+}

@@ -1,0 +1,20 @@
+{
+    "elements": [
+        {"type":"Label","name":"ConfigurationError","caption":"","visible":false},
+        {"type":"Label","caption":"The first album is the default album. Albums and images can be sorted using drag and drop."},
+        {"type":"List","name":"Albums","caption":"Albums","rowCount":6,"add":true,"delete":true,"changeOrder":true,"columns":[
+            {"caption":"Album","name":"Name","width":"auto","add":"","edit":{"type":"ValidationTextBox"}},
+            {"caption":"Images","name":"Images","width":"120px","add":[],"edit":{"type":"List","rowCount":8,"add":true,"delete":true,"changeOrder":true,"columns":[
+                {"caption":"Media","name":"MediaID","width":"180px","add":0,"edit":{"type":"SelectMedia"}},
+                {"caption":"Title","name":"Title","width":"220px","add":"","edit":{"type":"ValidationTextBox"}},
+                {"caption":"Description","name":"Description","width":"auto","add":"","edit":{"type":"ValidationTextBox"}}
+            ]}}
+        ]},
+        {"type":"Select","name":"Transition","caption":"Transition","options":[
+            {"caption":"No transition","value":"None"},
+            {"caption":"Fade","value":"Fade"},
+            {"caption":"Slide","value":"Slide"}
+        ]},
+        {"type":"NumberSpinner","name":"TransitionDuration","caption":"Transition duration","suffix":" ms","minimum":0,"maximum":5000}
+    ]
+}

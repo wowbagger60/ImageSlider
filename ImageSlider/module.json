@@ -1,0 +1,21 @@
+{
+    "id": "{78DAB19A-3A86-2817-5E7C-F4A8647D7D64}",
+    "name": "ImageSlider",
+    "type": 3,
+    "vendor": "",
+    "aliases": [
+        "Image Slider"
+    ],
+    "url": "https://www.cassanisautomation.fr",
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "IMGS",
+    "status": [
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "Invalid configuration"
+        }
+    ]
+}
