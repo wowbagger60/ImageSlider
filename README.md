@@ -35,3 +35,9 @@ An empty album name in `SetAlbum()` selects the default album.
 ## License
 
 MIT
+
+## Version 2.1
+
+- Swipe left or right on touch devices to navigate between images.
+- Toggle image captions using the icon at the bottom of the tile.
+- Configure whether captions are shown by default. The choice made in the tile is retained while navigating and resets when the tile reloads.

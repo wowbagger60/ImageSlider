@@ -22,7 +22,10 @@
             "Album \"%s\": MediaID %d is not an image media object.": "Album \"%s\": MediaID %d ist kein Bild-Medienobjekt.",
             "Invalid Ident: ": "Ungültiger Ident: ",
             "No images available": "Keine Bilder vorhanden",
-            "Image gallery": "Bildergalerie"
+            "Image gallery": "Bildergalerie",
+            "Show image captions by default": "Bildtexte standardmässig anzeigen",
+            "Show image captions": "Bildtexte anzeigen",
+            "Hide image captions": "Bildtexte ausblenden"
         }
     }
 }

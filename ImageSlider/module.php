@@ -11,6 +11,7 @@ class ImageSlider extends IPSModuleStrict
         $this->RegisterPropertyString('Albums', '[]');
         $this->RegisterPropertyString('Transition', 'Fade');
         $this->RegisterPropertyInteger('TransitionDuration', 300);
+        $this->RegisterPropertyBoolean('ShowCaptionsByDefault', true);
 
         $this->SetBuffer('ActiveAlbum', '');
         $this->SetBuffer('CurrentMediaID', '0');
@@ -451,6 +452,9 @@ class ImageSlider extends IPSModuleStrict
             'description' => $image === null ? '' : (string) $image['Description'],
             'transition' => $transition,
             'transitionDuration' => $duration,
+            'showCaptionsByDefault' => $this->ReadPropertyBoolean('ShowCaptionsByDefault'),
+            'showCaptionsLabel' => $this->Translate('Show image captions'),
+            'hideCaptionsLabel' => $this->Translate('Hide image captions'),
             'emptyText' => $this->Translate('No images available'),
             'ariaLabel' => $this->Translate('Image gallery')
         ], JSON_UNESCAPED_UNICODE);

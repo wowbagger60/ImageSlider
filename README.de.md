@@ -35,3 +35,9 @@ Ein leerer Albumname bei `SetAlbum()` wählt das Default-Album.
 ## Lizenz
 
 MIT
+
+## Version 2.1
+
+- Auf Touchgeräten mit Wischgesten zwischen Bildern wechseln.
+- Bildtexte über das Symbol am unteren Kachelrand ein- und ausblenden.
+- Konfigurierbarer Anfangszustand der Bildtexte. Die Auswahl bleibt beim Blättern erhalten und wird beim erneuten Laden der Kachel zurückgesetzt.
