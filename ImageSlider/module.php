@@ -626,8 +626,10 @@ class ImageSlider extends IPSModuleStrict
         $albums = $this->GetLegacyAlbums();
         $index = (int) $Index;
 
+        // Output here would appear as an error popup in the form, so results go to the debug log.
         if (!ctype_digit($Index) || !isset($albums[$index])) {
-            echo $this->Translate('The album no longer exists.');
+            $this->SendDebug('Migration', sprintf('Album %s no longer exists', $Index), 0);
+            $this->ReloadForm();
             return;
         }
 
@@ -648,7 +650,7 @@ class ImageSlider extends IPSModuleStrict
         IPS_ApplyChanges($this->InstanceID);
         $this->ReloadForm();
 
-        echo sprintf($this->Translate('Instance %d "%s" was created.'), $instanceID, IPS_GetName($instanceID));
+        $this->SendDebug('Migration', sprintf('Created instance %d "%s"', $instanceID, IPS_GetName($instanceID)), 0);
     }
 
     private function ReadJsonBuffer(string $Name): array

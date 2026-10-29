@@ -37,9 +37,7 @@
             "%s (%d images)": "%s (%d Bilder)",
             "Create as new instance": "Als neue Instanz anlegen",
             "Discard old albums": "Alte Alben verwerfen",
-            "The remaining albums will be deleted permanently. Continue?": "Die verbleibenden Alben werden endgültig gelöscht. Fortfahren?",
-            "The album no longer exists.": "Das Album existiert nicht mehr.",
-            "Instance %d \"%s\" was created.": "Instanz %d \"%s\" wurde angelegt."
+            "The remaining albums will be deleted permanently. Continue?": "Die verbleibenden Alben werden endgültig gelöscht. Fortfahren?"
         }
     }
 }
