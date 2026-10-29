@@ -25,7 +25,14 @@
             "Image gallery": "Bildergalerie",
             "Show image captions by default": "Bildtexte standardmässig anzeigen",
             "Show image captions": "Bildtexte anzeigen",
-            "Hide image captions": "Bildtexte ausblenden"
+            "Hide image captions": "Bildtexte ausblenden",
+            "Show navigation arrows": "Navigationspfeile anzeigen",
+            "Show image counter": "Bildzähler anzeigen",
+            "Show zoom buttons if gesture zoom is unavailable": "Zoom-Buttons anzeigen, falls Gesten-Zoom nicht verfügbar ist",
+            "Zoom in tile": "Zoom in der Kachel",
+            "Zoom buttons": "Zoom-Buttons",
+            "Pinch gestures": "Pinch-Gesten",
+            "Pinch gestures in the tile currently work reliably only on non-scrollable Symcon pages.": "Pinch-Gesten funktionieren in der Kachel derzeit nur auf nicht scrollbaren Symcon-Seiten zuverlässig."
         }
     }
 }

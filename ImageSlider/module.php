@@ -12,6 +12,10 @@ class ImageSlider extends IPSModuleStrict
         $this->RegisterPropertyString('Transition', 'Fade');
         $this->RegisterPropertyInteger('TransitionDuration', 300);
         $this->RegisterPropertyBoolean('ShowCaptionsByDefault', true);
+        $this->RegisterPropertyBoolean('ShowNavigationArrows', true);
+        $this->RegisterPropertyBoolean('ShowImageCounter', true);
+        $this->RegisterPropertyBoolean('EnableTileZoom', false); // Legacy setting, retained for compatibility
+        $this->RegisterPropertyString('TileZoomMode', 'Buttons');
 
         $this->SetBuffer('ActiveAlbum', '');
         $this->SetBuffer('CurrentMediaID', '0');
@@ -19,7 +23,8 @@ class ImageSlider extends IPSModuleStrict
         $this->SetBuffer('TextOverrides', '{}');
         $this->SetBuffer('ConfigurationError', '');
 
-        $this->SetVisualizationType(1);
+        $this->SetVisualizationType(defined('INSTANCE_VISUALIZATION_TYPE_HTML_FULLSCREEN')
+            ? constant('INSTANCE_VISUALIZATION_TYPE_HTML_FULLSCREEN') : 1);
     }
 
     public function ApplyChanges(): void
@@ -123,10 +128,11 @@ class ImageSlider extends IPSModuleStrict
             return '';
         }
 
-        return $html .
-            '<script>handleMessage(' .
-            json_encode($this->GetFullUpdateMessageByIndex(0)) .
-            ');</script>';
+        return str_replace(
+            '</body>',
+            '<script>window.imageSliderStorageKey = ' . json_encode('ImageSlider_' . $this->InstanceID) . ';handleMessage(' . json_encode($this->GetFullUpdateMessageByMediaID((int) $this->GetBuffer('CurrentMediaID'))) . ');</script></body>',
+            $html
+        );
     }
 
     public function RequestAction(string $Ident, mixed $Value): void
@@ -453,6 +459,9 @@ class ImageSlider extends IPSModuleStrict
             'transition' => $transition,
             'transitionDuration' => $duration,
             'showCaptionsByDefault' => $this->ReadPropertyBoolean('ShowCaptionsByDefault'),
+            'showNavigationArrows' => $this->ReadPropertyBoolean('ShowNavigationArrows'),
+            'showImageCounter' => $this->ReadPropertyBoolean('ShowImageCounter'),
+            'tileZoomMode' => $this->ReadPropertyString('TileZoomMode'),
             'showCaptionsLabel' => $this->Translate('Show image captions'),
             'hideCaptionsLabel' => $this->Translate('Hide image captions'),
             'emptyText' => $this->Translate('No images available'),

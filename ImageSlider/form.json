@@ -103,6 +103,35 @@
             "type": "CheckBox",
             "name": "ShowCaptionsByDefault",
             "caption": "Show image captions by default"
+        },
+        {
+            "type": "CheckBox",
+            "name": "ShowNavigationArrows",
+            "caption": "Show navigation arrows"
+        },
+        {
+            "type": "CheckBox",
+            "name": "ShowImageCounter",
+            "caption": "Show image counter"
+        },
+        {
+            "type": "Select",
+            "name": "TileZoomMode",
+            "caption": "Zoom in tile",
+            "options": [
+                {
+                    "caption": "Zoom buttons",
+                    "value": "Buttons"
+                },
+                {
+                    "caption": "Pinch gestures",
+                    "value": "Pinch"
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": "Pinch gestures in the tile currently work reliably only on non-scrollable Symcon pages."
         }
     ]
 }
