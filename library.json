@@ -2,11 +2,11 @@
     "id": "{3DCF6A23-33EF-5746-C766-18A7D951102C}",
     "name": "Image Slider",
     "author": "Ueli Schweizer",
-    "url": "https://www.cassanisautomation.fr",
+    "url": "https://github.com/wowbagger60/ImageSlider",
     "compatibility": {
         "version": "8.1"
     },
-    "version": "2.1",
-    "build": 1,
-    "date": 1791730800
+    "version": "3.0",
+    "build": 17,
+    "date": 1793296384
 }

@@ -1,25 +1,27 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-html,body{position:absolute;inset:0;margin:0;padding:0;overflow:hidden;overscroll-behavior:none;touch-action:none;-webkit-overflow-scrolling:auto}*{box-sizing:border-box}
-#image-slider{position:absolute;inset:0;overflow:hidden;outline:none;user-select:none;-webkit-user-select:none;background:transparent;touch-action:none;overscroll-behavior:none;-webkit-touch-callout:none;cursor:grab}
+html,body{position:absolute;inset:0;margin:0;padding:0;overflow:hidden;touch-action:pan-y}*{box-sizing:border-box}
+/* At 100% one-finger vertical pans belong to the Symcon page; when zoomed, all touches belong to the image. */
+#image-slider{position:absolute;inset:0;overflow:hidden;outline:none;user-select:none;-webkit-user-select:none;background:transparent;touch-action:pan-y;-webkit-touch-callout:none;cursor:grab}
+#image-slider.zoomed{touch-action:none;overscroll-behavior:none}
 #image-slider.dragging{cursor:grabbing}
-.slider-image{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:contain;object-position:center;pointer-events:none;-webkit-user-drag:none;transform-origin:center center;will-change:transform}
-#slider-image-back{z-index:0;display:none}#slider-image-front{z-index:1;display:none}
-.slider-button{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:50%;background:rgba(0,0,0,.42);color:#fff;font-size:30px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 3px;z-index:4}
-.slider-button:disabled{display:none}#previous-button{left:10px}#next-button{right:10px}
-#slider-counter{position:absolute;right:10px;bottom:10px;min-width:52px;padding:5px 10px;border-radius:14px;background:rgba(0,0,0,.48);color:#fff;font-family:Poppins,sans-serif;font-size:13px;line-height:18px;text-align:center;z-index:4}
+.slider-image{position:absolute;inset:0;width:100%;height:100%;display:none;object-fit:contain;object-position:center;pointer-events:none;-webkit-user-drag:none;transform-origin:center center;will-change:transform}
+#slider-image-back{z-index:0}#slider-image-front{z-index:1}
+.slider-button{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:50%;background:rgba(0,0,0,.42);color:#fff;font-size:30px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0 0 3px;z-index:4}
+#previous-button{left:10px}#next-button{right:10px}
+#slider-counter{position:absolute;right:10px;bottom:10px;min-width:52px;padding:5px 10px;border-radius:14px;background:rgba(0,0,0,.48);color:#fff;font-family:Poppins,sans-serif;font-size:13px;line-height:18px;text-align:center;z-index:4;display:none}
 #caption-toggle{position:absolute;left:10px;bottom:10px;width:30px;height:30px;border:0;border-radius:50%;background:rgba(0,0,0,.48);color:#fff;display:none;align-items:center;justify-content:center;cursor:pointer;z-index:5;font-size:16px;padding:0}#caption-toggle:focus-visible{outline:2px solid #fff;outline-offset:2px}
-#slider-text{position:absolute;left:46px;right:72px;bottom:10px;max-width:calc(100% - 128px);padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.48);color:#fff;font-family:Poppins,sans-serif;z-index:4}
+#slider-text{position:absolute;left:46px;right:72px;bottom:10px;max-width:calc(100% - 128px);padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.48);color:#fff;font-family:Poppins,sans-serif;z-index:4;display:none}
 #slider-title{font-size:14px;line-height:19px;font-weight:600}#slider-description{margin-top:2px;font-size:12px;line-height:17px;font-weight:400}
-#slider-empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:20px;font-family:Poppins,sans-serif;font-size:14px;text-align:center;opacity:.65;z-index:3}
+#slider-message{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:20px;font-family:Poppins,sans-serif;font-size:14px;text-align:center;opacity:.65;z-index:3;pointer-events:none}
 .fade-in{animation-name:image-slider-fade-in;animation-timing-function:ease;animation-fill-mode:both}
 .slide-in-right{animation-name:image-slider-slide-in-right;animation-timing-function:ease;animation-fill-mode:both}
 .slide-in-left{animation-name:image-slider-slide-in-left;animation-timing-function:ease;animation-fill-mode:both}
 @keyframes image-slider-fade-in{from{opacity:0}to{opacity:1}}
 @keyframes image-slider-slide-in-right{from{transform:translateX(100%)}to{transform:translateX(0)}}
 @keyframes image-slider-slide-in-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
-#tile-zoom-controls{position:absolute;right:9px;top:72%;transform:translateY(-50%);display:none;flex-direction:column;align-items:center;gap:5px;z-index:6;pointer-events:auto}
+#tile-zoom-controls{position:absolute;right:9px;top:72%;transform:translateY(-50%);display:none;flex-direction:column;align-items:center;gap:5px;z-index:6}
 .tile-zoom-button{width:38px;height:38px;border:0;border-radius:19px;background:rgba(0,0,0,.52);color:#fff;font:25px/1 sans-serif;cursor:pointer;touch-action:manipulation}
 .tile-zoom-button:disabled{opacity:.4;cursor:default}
 #tile-zoom-factor{font:12px/1.3 sans-serif;background:rgba(0,0,0,.52);color:white;border-radius:12px;padding:3px 6px;white-space:nowrap;visibility:hidden;min-width:49px;text-align:center}
@@ -27,118 +29,222 @@ html,body{position:absolute;inset:0;margin:0;padding:0;overflow:hidden;overscrol
 <div id="image-slider" tabindex="0" aria-label="Image gallery">
 <img id="slider-image-back" class="slider-image" alt="">
 <img id="slider-image-front" class="slider-image" alt="">
-<button id="previous-button" class="slider-button" type="button">‹</button>
-<button id="next-button" class="slider-button" type="button">›</button>
-<button id="caption-toggle" type="button" aria-pressed="true" aria-label="Hide image captions" title="Hide image captions">▤</button>
+<button id="previous-button" class="slider-button" type="button" aria-label="Previous image">‹</button>
+<button id="next-button" class="slider-button" type="button" aria-label="Next image">›</button>
+<button id="caption-toggle" type="button" aria-pressed="true">▤</button>
 <div id="slider-text"><div id="slider-title"></div><div id="slider-description"></div></div>
 <div id="slider-counter"></div>
-<div id="tile-zoom-controls"><button id="tile-zoom-plus" class="tile-zoom-button" type="button" aria-label="Zoom in">+</button><span id="tile-zoom-factor"></span><button id="tile-zoom-minus" class="tile-zoom-button" type="button" aria-label="Zoom out">−</button></div><div id="slider-empty">No images available</div>
+<div id="tile-zoom-controls"><button id="tile-zoom-plus" class="tile-zoom-button" type="button" aria-label="Zoom in">+</button><span id="tile-zoom-factor"></span><button id="tile-zoom-minus" class="tile-zoom-button" type="button" aria-label="Zoom out">−</button></div>
+<div id="slider-message"></div>
 </div>
 <script>
-const slider=document.getElementById('image-slider'),imageBack=document.getElementById('slider-image-back'),imageFront=document.getElementById('slider-image-front'),previousButton=document.getElementById('previous-button'),nextButton=document.getElementById('next-button'),counter=document.getElementById('slider-counter'),textBox=document.getElementById('slider-text'),title=document.getElementById('slider-title'),description=document.getElementById('slider-description'),emptyState=document.getElementById('slider-empty'),captionToggle=document.getElementById('caption-toggle');
-let currentIndex=0,imageCount=0,currentImage='',currentAlbum='',transition='Fade',transitionDuration=300,animationTimer=null,captionsVisible=true,captionsInitialized=false,hasCaptions=false,showCaptionsLabel='Show image captions',hideCaptionsLabel='Hide image captions',showNavigationArrows=true,showImageCounter=true,tileZoomMode="Buttons";
-function handleMessage(message){let data=message;if(typeof data==='string'){try{data=JSON.parse(data)}catch(e){console.error(e);return}}if(!data||typeof data!=='object')return;if(typeof data.emptyText==='string')emptyState.textContent=data.emptyText;if(typeof data.ariaLabel==='string')slider.setAttribute('aria-label',data.ariaLabel);if(typeof data.showCaptionsLabel==='string')showCaptionsLabel=data.showCaptionsLabel;if(typeof data.hideCaptionsLabel==='string')hideCaptionsLabel=data.hideCaptionsLabel;showNavigationArrows=data.showNavigationArrows!==false;showImageCounter=data.showImageCounter!==false;tileZoomMode=data.tileZoomMode==="Pinch"?"Pinch":"Buttons";updateZoomControls();if(!captionsInitialized){captionsVisible=data.showCaptionsByDefault!==false;captionsInitialized=true;}const oldIndex=currentIndex,oldCount=imageCount,oldAlbum=currentAlbum;imageCount=Number(data.count)||0;currentIndex=Number(data.index)||0;currentAlbum=typeof data.album==='string'?data.album:'';transition=['None','Fade','Slide'].includes(data.transition)?data.transition:'Fade';transitionDuration=Math.max(0,Math.min(5000,Number(data.transitionDuration)||0));if(imageCount<=0||!data.image){showEmptyState();return}let direction=1;if(oldAlbum===currentAlbum&&oldCount===imageCount){if(oldIndex===imageCount-1&&currentIndex===0)direction=1;else if(oldIndex===0&&currentIndex===imageCount-1)direction=-1;else if(currentIndex<oldIndex)direction=-1}showImageData(data,direction)}
-function showImageData(data,direction){const imageChanged=currentImage!==data.image||currentIndex!==displayedIndex||currentAlbum!==displayedAlbum;if(imageChanged&&!pendingRestore)resetZoom();displayedIndex=currentIndex;displayedAlbum=currentAlbum;clearAnimation();imageFront.style.display='block';imageBack.style.display=currentImage?'block':'none';if(currentImage)imageBack.src=currentImage;else imageBack.removeAttribute('src');imageFront.src=data.image;imageFront.className='slider-image';imageFront.style.animationDuration=`${transitionDuration}ms`;const changed=currentImage!==''&&currentImage!==data.image;const animate=changed&&transitionDuration>0&&transition!=='None';if(animate){if(transition==='Fade')imageFront.classList.add('fade-in');else if(transition==='Slide')imageFront.classList.add(direction<0?'slide-in-left':'slide-in-right');animationTimer=setTimeout(finishAnimation,transitionDuration+50)}else finishAnimation();currentImage=data.image;emptyState.style.display='none';updateText(data.title||'',data.description||'');counter.textContent=`${currentIndex+1} / ${imageCount}`;counter.style.display=imageCount>1&&showImageCounter?'block':'none';textBox.style.right=imageCount>1&&showImageCounter?'72px':'10px';textBox.style.maxWidth=imageCount>1&&showImageCounter?'calc(100% - 128px)':'calc(100% - 56px)';restoreViewState();previousButton.disabled=nextButton.disabled=imageCount<=1;previousButton.style.display=nextButton.style.display=imageCount>1&&showNavigationArrows?'flex':'none'}
-function finishAnimation(){clearAnimation();if(currentImage)imageBack.src=currentImage;imageFront.className='slider-image'}
-function clearAnimation(){if(animationTimer!==null){clearTimeout(animationTimer);animationTimer=null}}
+const slider=document.getElementById('image-slider'),imageBack=document.getElementById('slider-image-back'),imageFront=document.getElementById('slider-image-front'),previousButton=document.getElementById('previous-button'),nextButton=document.getElementById('next-button'),counter=document.getElementById('slider-counter'),textBox=document.getElementById('slider-text'),title=document.getElementById('slider-title'),description=document.getElementById('slider-description'),message=document.getElementById('slider-message'),captionToggle=document.getElementById('caption-toggle');
+const zoomControls=document.getElementById('tile-zoom-controls'),zoomPlus=document.getElementById('tile-zoom-plus'),zoomMinus=document.getElementById('tile-zoom-minus'),zoomFactor=document.getElementById('tile-zoom-factor');
+const MAX_ZOOM=5,SWIPE_DISTANCE=45,PRELOAD_LIMIT=6;
+
+// The server only sends the image list and settings. Every client navigates on its own.
+let images=[],currentIndex=-1,currentId=0,currentUrl='',settings={},labels={},initialized=false;
+let transitionTimer=null,loadToken=0,captionsVisible=true,hasCaptions=false;
+let zoom=1,panX=0,panY=0;
+const preloaded=new Map();
+
+function handleMessage(data){
+ if(typeof data==='string'){try{data=JSON.parse(data)}catch(e){console.error(e);return}}
+ if(!data||typeof data!=='object'||!Array.isArray(data.images))return;
+ settings=data;labels=data.labels||{};
+ applyLabels();
+ images=data.images;
+ let restore=null;
+ if(!initialized){
+  initialized=true;
+  captionsVisible=data.showCaptionsByDefault!==false;
+  restore=readViewState();
+  if(restore)currentId=restore.id;
+ }
+ if(images.length===0){currentIndex=-1;currentId=0;showEmptyState();return}
+ let index=images.findIndex(image=>image.id===currentId);
+ // A removed image is replaced by its successor at the same position.
+ if(index<0)index=Math.max(0,Math.min(currentIndex,images.length-1));
+ const image=images[index];
+ if(image.id===currentId&&image.url===currentUrl){currentIndex=index;updateDecorations();return}
+ showImage(index,0,restore&&restore.id===image.id?restore:null);
+}
+
+function applyLabels(){
+ slider.setAttribute('aria-label',labels.gallery||'Image gallery');
+ previousButton.setAttribute('aria-label',labels.previous||'Previous image');
+ nextButton.setAttribute('aria-label',labels.next||'Next image');
+ zoomPlus.setAttribute('aria-label',labels.zoomIn||'Zoom in');
+ zoomMinus.setAttribute('aria-label',labels.zoomOut||'Zoom out');
+}
+
+function showImage(index,direction,view){
+ const image=images[index],sameImage=image.id===currentId;
+ if(!sameImage)resetZoom();
+ const previousUrl=currentUrl;
+ currentIndex=index;currentId=image.id;currentUrl=image.url;
+ if(view){zoom=view.zoom;panX=view.panX*slider.clientWidth;panY=view.panY*slider.clientHeight}
+ clearTransition();
+ message.style.display='none';
+ // A changed media object keeps its position and is replaced without animation.
+ const animate=!sameImage&&previousUrl!==''&&settings.transition!=='None'&&transitionDuration()>0;
+ if(animate){imageBack.src=previousUrl;imageBack.style.display='block'}else hideBackImage();
+ imageFront.className='slider-image';
+ imageFront.style.display='block';
+ const token=++loadToken;
+ imageFront.onload=()=>{if(token===loadToken){applyZoom();if(animate)startTransition(direction)}};
+ imageFront.onerror=()=>{if(token===loadToken){hideBackImage();imageFront.style.display='none';showMessage(labels.unavailable||'Image cannot be displayed')}};
+ imageFront.src=image.url;
+ updateDecorations();
+ saveViewState();
+ preloadNeighbours();
+}
+
+function transitionDuration(){return Math.max(0,Math.min(5000,Number(settings.transitionDuration)||0))}
+function startTransition(direction){
+ const duration=transitionDuration();
+ imageFront.style.animationDuration=`${duration}ms`;
+ imageFront.classList.add(settings.transition==='Slide'?(direction<0?'slide-in-left':'slide-in-right'):'fade-in');
+ transitionTimer=setTimeout(finishTransition,duration+50);
+}
+// The previous image is hidden afterwards so it cannot shine through transparent images.
+function finishTransition(){clearTransition();imageFront.className='slider-image';hideBackImage()}
+function clearTransition(){if(transitionTimer!==null){clearTimeout(transitionTimer);transitionTimer=null}}
+function hideBackImage(){imageBack.style.display='none';imageBack.removeAttribute('src')}
+
+function preloadNeighbours(){
+ if(images.length<2)return;
+ for(const offset of [1,-1]){
+  const url=images[(currentIndex+offset+images.length)%images.length].url;
+  if(preloaded.has(url))continue;
+  const image=new Image();image.src=url;preloaded.set(url,image);
+ }
+ while(preloaded.size>PRELOAD_LIMIT)preloaded.delete(preloaded.keys().next().value);
+}
+
+function updateDecorations(){
+ const image=images[currentIndex],multiple=images.length>1,showCounter=multiple&&settings.showImageCounter!==false;
+ updateText(image.title||'',image.description||'');
+ counter.textContent=`${currentIndex+1} / ${images.length}`;
+ counter.style.display=showCounter?'block':'none';
+ textBox.style.right=showCounter?'72px':'10px';
+ textBox.style.maxWidth=showCounter?'calc(100% - 128px)':'calc(100% - 56px)';
+ previousButton.style.display=nextButton.style.display=multiple&&settings.showNavigationArrows!==false?'flex':'none';
+ updateZoomControls();
+}
 function updateText(t,d){title.textContent=t;description.textContent=d;title.style.display=t!==''?'block':'none';description.style.display=d!==''?'block':'none';hasCaptions=(t!==''||d!=='');updateCaptionVisibility()}
-function updateCaptionVisibility(){textBox.style.display=hasCaptions&&captionsVisible?'block':'none';captionToggle.style.display=hasCaptions?'flex':'none';captionToggle.textContent=captionsVisible?'▤':'▧';captionToggle.setAttribute('aria-pressed',String(captionsVisible));const label=captionsVisible?hideCaptionsLabel:showCaptionsLabel;captionToggle.setAttribute('aria-label',label);captionToggle.title=label}
-function showEmptyState(){clearAnimation();currentImage='';imageBack.removeAttribute('src');imageFront.removeAttribute('src');imageBack.style.display='none';imageFront.style.display='none';emptyState.style.display='flex';counter.style.display='none';updateText('','');previousButton.disabled=nextButton.disabled=true;previousButton.style.display=nextButton.style.display='none';resetZoom()}
-function showImage(i){if(imageCount<=0)return;requestAction('ShowImage',((i%imageCount)+imageCount)%imageCount)}
-function nextImage(){showImage(currentIndex+1)}function previousImage(){showImage(currentIndex-1)}
+function updateCaptionVisibility(){textBox.style.display=hasCaptions&&captionsVisible?'block':'none';captionToggle.style.display=hasCaptions?'flex':'none';captionToggle.textContent=captionsVisible?'▤':'▧';captionToggle.setAttribute('aria-pressed',String(captionsVisible));const label=captionsVisible?(labels.hideCaptions||'Hide image captions'):(labels.showCaptions||'Show image captions');captionToggle.setAttribute('aria-label',label);captionToggle.title=label}
+function showMessage(text){message.textContent=text;message.style.display='flex'}
+function showEmptyState(){clearTransition();loadToken++;currentUrl='';hideBackImage();imageFront.removeAttribute('src');imageFront.style.display='none';showMessage(labels.empty||'No images available');counter.style.display='none';updateText('','');previousButton.style.display=nextButton.style.display='none';resetZoom()}
+
+function navigate(step){if(images.length<2)return;showImage(((currentIndex+step)%images.length+images.length)%images.length,step,null)}
+function nextImage(){navigate(1)}function previousImage(){navigate(-1)}
 captionToggle.addEventListener('click',()=>{captionsVisible=!captionsVisible;updateCaptionVisibility()});
 previousButton.addEventListener('click',previousImage);nextButton.addEventListener('click',nextImage);
-// Unified mouse/touch gestures. All zoom state belongs to this visualization client.
-let zoom=1,panX=0,panY=0,displayedIndex=-1,displayedAlbum='';
+
 // sessionStorage is scoped to a browser tab and survives iframe recreation.
-// Store only image identity and view coordinates, never the image data URL.
-function saveViewState(){try{sessionStorage.setItem(window.imageSliderStorageKey||'ImageSlider',JSON.stringify({album:currentAlbum,index:currentIndex,zoom,panX:panX/Math.max(1,slider.clientWidth),panY:panY/Math.max(1,slider.clientHeight)}))}catch(e){}}
-let pendingRestore=true;
-function restoreViewState(){if(!pendingRestore)return;pendingRestore=false;try{const state=JSON.parse(sessionStorage.getItem(window.imageSliderStorageKey||'ImageSlider')||'null');if(state&&state.album===currentAlbum&&state.index===currentIndex){zoom=Math.max(1,Math.min(MAX_ZOOM,Number(state.zoom)||1));panX=(Number(state.panX)||0)*slider.clientWidth;panY=(Number(state.panY)||0)*slider.clientHeight;applyZoom()}}catch(e){}}
+// Only the image ID and view coordinates are stored, throttled while panning.
+let saveTimer=null;
+function saveViewState(){if(saveTimer!==null)return;saveTimer=setTimeout(()=>{saveTimer=null;try{sessionStorage.setItem(window.imageSliderStorageKey||'ImageSlider',JSON.stringify({id:currentId,zoom,panX:panX/Math.max(1,slider.clientWidth),panY:panY/Math.max(1,slider.clientHeight)}))}catch(e){}},250)}
+function readViewState(){try{const state=JSON.parse(sessionStorage.getItem(window.imageSliderStorageKey||'ImageSlider')||'null');if(state&&Number.isInteger(state.id))return {id:state.id,zoom:Math.max(1,Math.min(MAX_ZOOM,Number(state.zoom)||1)),panX:Number(state.panX)||0,panY:Number(state.panY)||0}}catch(e){}return null}
 
-const pointers=new Map();let drag=null,pinch=null,suppressClick=false;
-const MAX_ZOOM=5,SWIPE_DISTANCE=45;
-const zoomControls=document.getElementById('tile-zoom-controls'),zoomPlus=document.getElementById('tile-zoom-plus'),zoomMinus=document.getElementById('tile-zoom-minus'),zoomFactor=document.getElementById('tile-zoom-factor');
 // Symcon renders fullscreen in a separate, viewport-sized HTML visualization.
-// Compare the actual frame with screen dimensions; no parent DOM access needed.
 function isFullscreenView(){const w=window.innerWidth,h=window.innerHeight;return w>=screen.width*.84&&h>=screen.height*.70}
-// Fullscreen always supports pinch; tile mode is explicitly configured.
-function allowPinch(){return isFullscreenView()||tileZoomMode==='Pinch'}
-function refreshScrollDetection(){updateZoomControls()}
-
-function updateZoomControls(){if(!zoomControls)return;const visible=tileZoomMode==='Buttons'&&!allowPinch()&&imageCount>0;zoomControls.style.display=visible?'flex':'none';zoomFactor.textContent=Math.round(zoom*100)+' %';zoomFactor.style.visibility=zoom>1.005?'visible':'hidden';zoomPlus.disabled=zoom>=MAX_ZOOM-.001;zoomMinus.disabled=zoom<=1.001;}
-function stepTileZoom(direction){if(tileZoomMode!=='Buttons'||allowPinch()||imageCount<1)return;const rect=slider.getBoundingClientRect();setZoom(zoom*(direction>0?1.25:1/1.25),rect.left+rect.width/2,rect.top+rect.height/2)}
-zoomPlus.addEventListener('click',()=>stepTileZoom(1));zoomMinus.addEventListener('click',()=>stepTileZoom(-1));
+function updateZoomControls(){const visible=settings.showZoomButtons!==false&&!isFullscreenView()&&currentIndex>=0;zoomControls.style.display=visible?'flex':'none';zoomFactor.textContent=Math.round(zoom*100)+' %';zoomFactor.style.visibility=zoom>1.005?'visible':'hidden';zoomPlus.disabled=zoom>=MAX_ZOOM-.001;zoomMinus.disabled=zoom<=1.001}
+function stepZoom(direction){if(currentIndex<0)return;const rect=slider.getBoundingClientRect();setZoom(zoom*(direction>0?1.25:1/1.25),rect.left+rect.width/2,rect.top+rect.height/2)}
+zoomPlus.addEventListener('click',()=>stepZoom(1));zoomMinus.addEventListener('click',()=>stepZoom(-1));
 for(const b of [zoomPlus,zoomMinus])b.addEventListener('pointerdown',e=>e.stopPropagation());
 
 function fittedSize(){const w=slider.clientWidth,h=slider.clientHeight,nw=imageFront.naturalWidth,nh=imageFront.naturalHeight;if(!nw||!nh||!w||!h)return {w:0,h:0};const scale=Math.min(w/nw,h/nh);return {w:nw*scale,h:nh*scale}}
-function clampPan(){const f=fittedSize();panX=Math.max(-Math.max(0,(f.w*zoom-slider.clientWidth)/2),Math.min(Math.max(0,(f.w*zoom-slider.clientWidth)/2),panX));panY=Math.max(-Math.max(0,(f.h*zoom-slider.clientHeight)/2),Math.min(Math.max(0,(f.h*zoom-slider.clientHeight)/2),panY))}
-function applyZoom(){clampPan();saveViewState();updateZoomControls();imageFront.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`;imageBack.style.transform='none'}
-function resetZoom(){zoom=1;panX=0;panY=0;saveViewState();imageFront.style.transform='none';imageBack.style.transform='none';updateZoomControls()}
+function clampPan(){const f=fittedSize(),maxX=Math.max(0,(f.w*zoom-slider.clientWidth)/2),maxY=Math.max(0,(f.h*zoom-slider.clientHeight)/2);panX=Math.max(-maxX,Math.min(maxX,panX));panY=Math.max(-maxY,Math.min(maxY,panY))}
+function applyZoom(){clampPan();saveViewState();updateZoomControls();slider.classList.toggle('zoomed',zoom>1.001);imageFront.style.transform=zoom>1.001?`translate(${panX}px,${panY}px) scale(${zoom})`:'none'}
+function resetZoom(){zoom=1;panX=0;panY=0;slider.classList.remove('zoomed');imageFront.style.transform='none';saveViewState();updateZoomControls()}
 function setZoom(value,x,y){const old=zoom;zoom=Math.max(1,Math.min(MAX_ZOOM,value));const rect=slider.getBoundingClientRect(),cx=x-rect.left-rect.width/2,cy=y-rect.top-rect.height/2;panX=cx-(cx-panX)*zoom/old;panY=cy-(cy-panY)*zoom/old;applyZoom()}
-slider.addEventListener('wheel',e=>{if(imageCount<1||!allowPinch()||e.target.closest('button'))return;e.preventDefault();setZoom(zoom*Math.exp(-e.deltaY*0.002),e.clientX,e.clientY)},{passive:false});
+// Plain wheel scrolls the Symcon page. Ctrl+wheel (also trackpad pinch) zooms; fullscreen always zooms.
+slider.addEventListener('wheel',e=>{if(currentIndex<0||e.target.closest('button')||!(e.ctrlKey||isFullscreenView()))return;e.preventDefault();setZoom(zoom*Math.exp(-e.deltaY*0.002),e.clientX,e.clientY)},{passive:false});
+
+// Unified mouse/touch gestures. All zoom state belongs to this visualization client.
+const pointers=new Map();let drag=null,pinch=null,suppressClick=false;
 function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
 function clearGestureState(){pointers.clear();drag=null;pinch=null;slider.classList.remove('dragging');suppressClick=false}
-// iOS can hand a touch sequence to an ancestor scroller without delivering
-// the matching pointerup/pointercancel. Touch events are the fallback truth.
-function reconcileTouchEnd(e){
- if(e.touches.length===0){
-  if(pointers.size||drag||pinch){clearGestureState();gestureRecovery='touchend: all fingers released'}
- }else if(pointers.size>e.touches.length){
-  // Pointer IDs and Touch identifiers are different namespaces. Do not
-  // attempt to match them; discard the inconsistent gesture atomically.
-  clearGestureState();gestureRecovery='touchend: stale pointer count';
- }
-}
-let gestureRecovery='none';
 function cancelGesture(e){if(e&&pointers.has(e.pointerId))pointers.delete(e.pointerId);clearGestureState()}
-slider.addEventListener('pointerdown',e=>{if(imageCount<1||e.target.closest('button')||(e.pointerType==='mouse'&&e.button!==0))return;e.preventDefault();try{slider.setPointerCapture(e.pointerId)}catch(error){clearGestureState();return}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===1){drag={id:e.pointerId,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,history:[{x:e.clientX,y:e.clientY,t:performance.now()}],moved:false};pinch=null}else if(pointers.size===2&&allowPinch()){const [a,b]=[...pointers.values()];pinch={distance:distance(a,b),zoom};drag=null}else if(pointers.size>2){drag=null;pinch=null}slider.classList.add('dragging')});
-slider.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;e.preventDefault();const previous=pointers.get(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2&&pinch&&allowPinch()){const [a,b]=[...pointers.values()];const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;setZoom(pinch.zoom*distance(a,b)/Math.max(1,pinch.distance),midX,midY);suppressClick=true;return}if(!drag||drag.id!==e.pointerId)return;const dx=e.clientX-previous.x,dy=e.clientY-previous.y;if(Math.hypot(e.clientX-drag.startX,e.clientY-drag.startY)>6)drag.moved=true;if(zoom>1){panX+=dx;panY+=dy;applyZoom()}drag.lastX=e.clientX;drag.lastY=e.clientY;const now=performance.now();drag.history.push({x:e.clientX,y:e.clientY,t:now});drag.history=drag.history.filter(p=>now-p.t<=160);if(drag.moved)suppressClick=true});
+slider.addEventListener('pointerdown',e=>{
+ if(currentIndex<0||e.target.closest('button')||(e.pointerType==='mouse'&&e.button!==0))return;
+ // iOS can take a two-finger gesture away without pointerup or pointercancel.
+ // A new primary pointer therefore starts from a clean state.
+ if(e.isPrimary&&pointers.size)clearGestureState();
+ e.preventDefault();
+ try{slider.setPointerCapture(e.pointerId)}catch(error){clearGestureState();return}
+ pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size===1){drag={id:e.pointerId,startX:e.clientX,startY:e.clientY,moved:false};pinch=null}
+ else if(pointers.size===2){const [a,b]=[...pointers.values()];pinch={distance:distance(a,b),zoom,midX:(a.x+b.x)/2,midY:(a.y+b.y)/2};drag=null}
+ else{drag=null;pinch=null}
+ slider.classList.add('dragging');
+});
+slider.addEventListener('pointermove',e=>{
+ if(!pointers.has(e.pointerId))return;
+ e.preventDefault();
+ const previous=pointers.get(e.pointerId);
+ pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size===2&&pinch){
+  const [a,b]=[...pointers.values()],midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;
+  // Moving the midpoint pans; changing the distance zooms around the midpoint.
+  panX+=midX-pinch.midX;panY+=midY-pinch.midY;pinch.midX=midX;pinch.midY=midY;
+  setZoom(pinch.zoom*distance(a,b)/Math.max(1,pinch.distance),midX,midY);
+  suppressClick=true;return;
+ }
+ if(!drag||drag.id!==e.pointerId)return;
+ if(Math.hypot(e.clientX-drag.startX,e.clientY-drag.startY)>6){drag.moved=true;suppressClick=true}
+ if(zoom>1){panX+=e.clientX-previous.x;panY+=e.clientY-previous.y;applyZoom()}
+});
 function endPointer(e){
  if(!pointers.has(e.pointerId))return;
  const gesture=drag&&drag.id===e.pointerId?drag:null;
  pointers.delete(e.pointerId);
  if(pointers.size===0)slider.classList.remove('dragging');
- if(pinch){if(pointers.size<2){pinch=null;drag=null}return}
+ if(pinch){
+  if(pointers.size<2){
+   pinch=null;drag=null;
+   // The remaining finger continues panning without a new touch. It must never navigate.
+   if(pointers.size===1){const [id,p]=[...pointers.entries()][0];drag={id,startX:p.x,startY:p.y,moved:true,afterPinch:true}}
+  }
+  return;
+ }
  if(!gesture)return;
  drag=null;
  // At any zoom above 100%, gestures only pan the image. Navigation is
  // possible by swiping at 100% or by explicitly using navigation controls.
- if(zoom>1.001)return;
+ if(gesture.afterPinch||zoom>1.001)return;
  const dx=e.clientX-gesture.startX,dy=e.clientY-gesture.startY;
- const horizontal=Math.abs(dx)>=SWIPE_DISTANCE&&Math.abs(dx)>Math.abs(dy)*1.3;
- if(horizontal&&imageCount>1){dx<0?nextImage():previousImage()}
+ if(Math.abs(dx)>=SWIPE_DISTANCE&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?nextImage():previousImage()}
 }
 slider.addEventListener('pointerup',endPointer);
 slider.addEventListener('pointercancel',cancelGesture);
 slider.addEventListener('lostpointercapture',e=>{if(pointers.has(e.pointerId))cancelGesture(e)});
 window.addEventListener('blur',clearGestureState);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearGestureState()});
-// Keep the scrollable Symcon page from claiming touches that start in the
-// image surface. Listener options must be non-passive on iOS/WebKit.
-let lastTouchCount=0;
-function blockNativeTouch(e){
- if(!allowPinch())return;
- if(e.target.closest('button'))return;
- if(e.cancelable)e.preventDefault();
-}
-slider.addEventListener('touchstart',e=>{
- if(e.target.closest('button'))return;
- // A fresh touch sequence must never inherit orphaned pointer state.
- lastTouchCount=e.touches.length;
- // Do not preventDefault on touchstart: iOS may suppress pointer events.
-},{capture:true,passive:true});
-slider.addEventListener('touchmove',e=>{lastTouchCount=e.touches.length;blockNativeTouch(e)},{capture:true,passive:false});
-slider.addEventListener('touchend',e=>{lastTouchCount=e.touches.length;const remaining=e.touches.length;setTimeout(()=>reconcileTouchEnd({touches:{length:remaining}}),0)},{capture:false,passive:true});
-slider.addEventListener('touchcancel',e=>{lastTouchCount=e.touches.length;clearGestureState();gestureRecovery='touchcancel'},{capture:false,passive:true});
+
+// Cooperative touch handling: one finger at 100% may scroll the Symcon page,
+// two fingers or a zoomed image claim the touch. The page can only be stopped
+// reliably at touchstart; once it scrolls, later touch events are not cancelable.
+// Pointer events still fire after preventDefault on touchstart; only click is suppressed.
+function claimsTouch(e){return !e.target.closest('button')&&(e.touches.length>=2||zoom>1.001)}
+slider.addEventListener('touchstart',e=>{if(claimsTouch(e)&&e.cancelable)e.preventDefault()},{capture:true,passive:false});
+slider.addEventListener('touchmove',e=>{if(claimsTouch(e)&&e.cancelable)e.preventDefault()},{capture:true,passive:false});
+// iOS can hand a touch sequence to an ancestor scroller without delivering
+// the matching pointerup/pointercancel. Touch events are the fallback truth.
+slider.addEventListener('touchend',e=>{const remaining=e.touches.length;setTimeout(()=>{if(remaining===0||pointers.size>remaining)clearGestureState()},0)},{passive:true});
+slider.addEventListener('touchcancel',clearGestureState,{passive:true});
+// Safari's own page pinch-zoom must never take over the tile.
 for(const eventName of ['gesturestart','gesturechange','gestureend']){
- slider.addEventListener(eventName,e=>{if(allowPinch()&&e.cancelable)e.preventDefault()},{capture:true,passive:false});
+ slider.addEventListener(eventName,e=>{if(e.cancelable)e.preventDefault()},{capture:true,passive:false});
 }
 slider.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopPropagation();suppressClick=false}},true);
-window.addEventListener('resize',()=>{refreshScrollDetection();applyZoom()});imageFront.addEventListener('load',applyZoom);
-refreshScrollDetection();
-slider.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDefault();previousImage()}if(e.key==='ArrowRight'){e.preventDefault();nextImage()}});
+window.addEventListener('resize',()=>{updateZoomControls();applyZoom()});
 
-
+slider.addEventListener('keydown',e=>{
+ const keys={ArrowLeft:previousImage,ArrowRight:nextImage,'+':()=>stepZoom(1),'=':()=>stepZoom(1),'-':()=>stepZoom(-1),'0':resetZoom};
+ if(keys[e.key]){e.preventDefault();keys[e.key]()}
+});
 </script>
 </body></html>

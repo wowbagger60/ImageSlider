@@ -4,114 +4,125 @@ declare(strict_types=1);
 
 class ImageSlider extends IPSModuleStrict
 {
+    private const MODULE_ID = '{78DAB19A-3A86-2817-5E7C-F4A8647D7D64}';
+
+    // Settings copied to instances created from legacy albums.
+    private const SHARED_PROPERTIES = [
+        'Transition',
+        'TransitionDuration',
+        'ShowCaptionsByDefault',
+        'ShowNavigationArrows',
+        'ShowImageCounter',
+        'ShowZoomButtons'
+    ];
+
     public function Create(): void
     {
         parent::Create();
 
-        $this->RegisterPropertyString('Albums', '[]');
+        $this->RegisterPropertyString('Images', '[]');
         $this->RegisterPropertyString('Transition', 'Fade');
         $this->RegisterPropertyInteger('TransitionDuration', 300);
         $this->RegisterPropertyBoolean('ShowCaptionsByDefault', true);
         $this->RegisterPropertyBoolean('ShowNavigationArrows', true);
         $this->RegisterPropertyBoolean('ShowImageCounter', true);
-        $this->RegisterPropertyBoolean('EnableTileZoom', false); // Legacy setting, retained for compatibility
-        $this->RegisterPropertyString('TileZoomMode', 'Buttons');
+        $this->RegisterPropertyBoolean('ShowZoomButtons', true);
 
-        $this->SetBuffer('ActiveAlbum', '');
-        $this->SetBuffer('CurrentMediaID', '0');
-        $this->SetBuffer('TemporaryImages', '{}');
+        // Up to 2.x only. After migration it holds the albums that still wait for
+        // "Create as new instance" or "Discard".
+        $this->RegisterPropertyString('Albums', '[]');
+        $this->RegisterAttributeBoolean('AlbumsMigrated', false);
+
+        $this->RegisterAttributeString('HookToken', '');
+
+        $this->SetBuffer('TemporaryImages', '[]');
         $this->SetBuffer('TextOverrides', '{}');
-        $this->SetBuffer('ConfigurationError', '');
 
-        $this->SetVisualizationType(defined('INSTANCE_VISUALIZATION_TYPE_HTML_FULLSCREEN')
-            ? constant('INSTANCE_VISUALIZATION_TYPE_HTML_FULLSCREEN') : 1);
+        $this->SetVisualizationType($this->VisualizationType());
     }
 
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
 
-        $albums = $this->GetAlbumsRaw();
-        $this->SendDebug('ApplyChanges', sprintf('Validating configuration: %d album(s)', count($albums)), 0);
-        $error = $this->ValidateConfiguration($albums);
+        $this->SetVisualizationType($this->VisualizationType());
 
-        if ($error !== null) {
-            $this->SetBuffer('ConfigurationError', $error);
-            $this->SetStatus(201);
-            $this->SendDebug('Configuration', $error, 0);
-            $this->ReloadForm();
+        foreach ($this->GetMessageList() as $senderID => $messages) {
+            foreach ($messages as $message) {
+                $this->UnregisterMessage($senderID, $message);
+            }
+        }
+
+        if (IPS_GetKernelRunlevel() !== KR_READY) {
+            $this->RegisterMessage(0, IPS_KERNELSTARTED);
+        } elseif ($this->MigrateAlbums()) {
             return;
         }
 
-        $this->SetBuffer('ConfigurationError', '');
-        $this->SetStatus(102);
-        $this->ReloadForm();
+        if ($this->ReadAttributeString('HookToken') === '') {
+            $this->WriteAttributeString('HookToken', bin2hex(random_bytes(16)));
+        }
+
+        $hookRegistered = $this->RegisterHook($this->GetHookAddress());
+        $this->SendDebug('Hook', sprintf('RegisterHook(%s): %s', $this->GetHookAddress(), $hookRegistered ? 'true' : 'false'), 0);
 
         foreach ($this->GetReferenceList() as $referenceID) {
             $this->UnregisterReference($referenceID);
         }
 
-        $references = [];
-        foreach ($albums as $album) {
-            foreach ($this->NormalizeImagesValue($album['Images'] ?? []) as $image) {
-                $mediaID = (int) ($image['MediaID'] ?? 0);
-                $references[$mediaID] = true;
+        foreach ($this->GetConfiguredImageEntries() as $image) {
+            if ($image['MediaID'] > 0) {
+                $this->RegisterReference($image['MediaID']);
             }
         }
 
-        foreach (array_keys($references) as $mediaID) {
-            $this->RegisterReference((int) $mediaID);
+        $this->RefreshState();
+    }
+
+    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
+    {
+        switch ($Message) {
+            case IPS_KERNELSTARTED:
+                $this->ApplyChanges();
+                break;
+
+            case MM_UPDATE:
+            case MM_CHANGEFILE:
+                $this->SendDebug('MessageSink', sprintf('Media %d changed', $SenderID), 0);
+                $this->SendMeta();
+                break;
+
+            case MM_DELETE:
+                $this->SendDebug('MessageSink', sprintf('Media %d deleted', $SenderID), 0);
+                $this->RemoveTemporaryImage($SenderID);
+                $this->RefreshState();
+                break;
         }
-
-        $imageCount = 0;
-        foreach ($albums as $album) {
-            $imageCount += count($this->NormalizeImagesValue($album['Images'] ?? []));
-        }
-
-        $this->SendDebug(
-            'ApplyChanges',
-            sprintf(
-                'Configuration valid: %d album(s), %d image(s), %d reference(s), default album: %s',
-                count($albums),
-                $imageCount,
-                count($references),
-                $this->GetDefaultAlbumName() !== '' ? $this->GetDefaultAlbumName() : '<none>'
-            ),
-            0
-        );
-
-        $this->SetBuffer('ActiveAlbum', '');
-        $this->SetBuffer('CurrentMediaID', '0');
-
-        $this->UpdateVisualizationValue(
-            $this->GetFullUpdateMessageByIndex(0)
-        );
     }
 
     public function GetConfigurationForm(): string
     {
-        $formContent = file_get_contents(__DIR__ . '/form.json');
-
-        if ($formContent === false) {
-            return '{}';
-        }
-
-        $form = json_decode($formContent, true);
+        $form = json_decode((string) file_get_contents(__DIR__ . '/form.json'), true);
 
         if (!is_array($form)) {
             return '{}';
         }
 
-        $error = $this->GetBuffer('ConfigurationError');
+        $error = $this->ValidateConfiguration() ?? '';
+        $legacyAlbums = $this->GetLegacyAlbums();
 
         foreach ($form['elements'] as &$element) {
-            if (($element['name'] ?? '') !== 'ConfigurationError') {
-                continue;
-            }
+            switch ($element['name'] ?? '') {
+                case 'ConfigurationError':
+                    $element['caption'] = $error;
+                    $element['visible'] = ($error !== '');
+                    break;
 
-            $element['caption'] = $error;
-            $element['visible'] = ($error !== '');
-            break;
+                case 'LegacyAlbums':
+                    $element['visible'] = count($legacyAlbums) > 0;
+                    $element['items'] = $this->GetLegacyAlbumFormItems($legacyAlbums);
+                    break;
+            }
         }
         unset($element);
 
@@ -128,9 +139,11 @@ class ImageSlider extends IPSModuleStrict
             return '';
         }
 
+        $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+
         return str_replace(
             '</body>',
-            '<script>window.imageSliderStorageKey = ' . json_encode('ImageSlider_' . $this->InstanceID) . ';handleMessage(' . json_encode($this->GetFullUpdateMessageByMediaID((int) $this->GetBuffer('CurrentMediaID'))) . ');</script></body>',
+            '<script>window.imageSliderStorageKey = ' . json_encode('ImageSlider_' . $this->InstanceID, $flags) . ';handleMessage(' . json_encode($this->BuildMeta(), $flags) . ');</script></body>',
             $html
         );
     }
@@ -138,10 +151,14 @@ class ImageSlider extends IPSModuleStrict
     public function RequestAction(string $Ident, mixed $Value): void
     {
         switch ($Ident) {
-            case 'ShowImage':
-                $this->UpdateVisualizationValue(
-                    $this->GetFullUpdateMessageByIndex((int) $Value)
-                );
+            case 'CreateInstanceFromAlbum':
+                $this->CreateInstanceFromAlbum((string) $Value);
+                break;
+
+            case 'DiscardLegacyAlbums':
+                IPS_SetProperty($this->InstanceID, 'Albums', '[]');
+                IPS_ApplyChanges($this->InstanceID);
+                $this->ReloadForm();
                 break;
 
             default:
@@ -149,495 +166,300 @@ class ImageSlider extends IPSModuleStrict
         }
     }
 
-    public function SetAlbum(string $AlbumName): bool
+    public function AddImage(int $MediaID): bool
     {
-        if ($AlbumName === '') {
-            $this->SetBuffer('ActiveAlbum', '');
-        } else {
-            if (!$this->AlbumExists($AlbumName)) {
-                $this->SendDebug('SetAlbum', sprintf('Album not found: %s', $AlbumName), 0);
-                return false;
-            }
-
-            $this->SetBuffer('ActiveAlbum', $AlbumName);
-        }
-
-        $this->SendDebug('SetAlbum', sprintf('Selected album: %s', $this->GetActiveAlbumName() !== '' ? $this->GetActiveAlbumName() : '<none>'), 0);
-        $this->SetBuffer('CurrentMediaID', '0');
-
-        $this->UpdateVisualizationValue(
-            $this->GetFullUpdateMessageByIndex(0)
-        );
-
-        return true;
-    }
-
-    public function AddImage(string $AlbumName, int $MediaID): bool
-    {
-        if (!$this->AlbumExists($AlbumName)) {
-            $this->SendDebug('AddImage', sprintf('Album not found: %s', $AlbumName), 0);
-            return false;
-        }
-
         if (!$this->IsImageMedia($MediaID)) {
             $this->SendDebug('AddImage', sprintf('Invalid image MediaID: %d', $MediaID), 0);
             return false;
         }
 
-        if ($this->ImageExistsInAlbum($AlbumName, $MediaID)) {
-            $this->SendDebug('AddImage', sprintf('Image %d already exists in album %s', $MediaID, $AlbumName), 0);
+        if ($this->ImageExists($MediaID)) {
+            $this->SendDebug('AddImage', sprintf('Image %d already exists', $MediaID), 0);
             return false;
         }
 
         $temporaryImages = $this->ReadJsonBuffer('TemporaryImages');
-
-        if (!isset($temporaryImages[$AlbumName])) {
-            $temporaryImages[$AlbumName] = [];
-        }
-
-        $temporaryImages[$AlbumName][] = [
-            'MediaID' => $MediaID,
-            'Title' => '',
-            'Description' => ''
-        ];
-
+        $temporaryImages[] = ['MediaID' => $MediaID, 'Title' => '', 'Description' => ''];
         $this->WriteJsonBuffer('TemporaryImages', $temporaryImages);
-        $this->SendDebug('AddImage', sprintf('Added temporary image %d to album %s', $MediaID, $AlbumName), 0);
-        $this->RefreshActiveAlbumPreservingImage($AlbumName);
+
+        $this->SendDebug('AddImage', sprintf('Added temporary image %d', $MediaID), 0);
+        $this->RefreshState();
 
         return true;
     }
 
-    public function RemoveImage(string $AlbumName, int $MediaID): bool
+    public function RemoveImage(int $MediaID): bool
     {
-        if (!$this->AlbumExists($AlbumName)) {
-            $this->SendDebug('RemoveImage', sprintf('Album not found: %s', $AlbumName), 0);
+        if (!$this->RemoveTemporaryImage($MediaID)) {
+            $this->SendDebug('RemoveImage', sprintf('Temporary image %d not found', $MediaID), 0);
             return false;
         }
 
-        $temporaryImages = $this->ReadJsonBuffer('TemporaryImages');
-
-        if (!isset($temporaryImages[$AlbumName]) || !is_array($temporaryImages[$AlbumName])) {
-            $this->SendDebug('RemoveImage', sprintf('No temporary images in album %s', $AlbumName), 0);
-            return false;
-        }
-
-        $found = false;
-        $newImages = [];
-
-        foreach ($temporaryImages[$AlbumName] as $image) {
-            if ((int) ($image['MediaID'] ?? 0) === $MediaID) {
-                $found = true;
-                continue;
-            }
-
-            $newImages[] = $image;
-        }
-
-        if (!$found) {
-            $this->SendDebug('RemoveImage', sprintf('Temporary image %d not found in album %s', $MediaID, $AlbumName), 0);
-            return false;
-        }
-
-        $temporaryImages[$AlbumName] = $newImages;
-        $this->WriteJsonBuffer('TemporaryImages', $temporaryImages);
-        $this->RemoveTextOverride($AlbumName, $MediaID);
-        $this->SendDebug('RemoveImage', sprintf('Removed temporary image %d from album %s', $MediaID, $AlbumName), 0);
-
-        $this->RefreshActiveAlbumPreservingImage($AlbumName);
+        $this->SendDebug('RemoveImage', sprintf('Removed temporary image %d', $MediaID), 0);
+        $this->RefreshState();
 
         return true;
     }
 
-    public function ClearImages(string $AlbumName): bool
+    public function ClearImages(): bool
     {
-        if (!$this->AlbumExists($AlbumName)) {
-            $this->SendDebug('ClearImages', sprintf('Album not found: %s', $AlbumName), 0);
-            return false;
-        }
-
         $temporaryImages = $this->ReadJsonBuffer('TemporaryImages');
 
-        if (!isset($temporaryImages[$AlbumName])) {
-            $this->SendDebug('ClearImages', sprintf('No temporary images to clear in album %s', $AlbumName), 0);
-            return true;
+        foreach ($temporaryImages as $image) {
+            $this->RemoveTextOverride((int) ($image['MediaID'] ?? 0));
         }
 
-        $removedMediaIDs = [];
-        foreach ($temporaryImages[$AlbumName] as $image) {
-            $removedMediaIDs[] = (int) ($image['MediaID'] ?? 0);
-        }
-
-        unset($temporaryImages[$AlbumName]);
-        $this->WriteJsonBuffer('TemporaryImages', $temporaryImages);
-
-        foreach ($removedMediaIDs as $mediaID) {
-            if ($mediaID > 0) {
-                $this->RemoveTextOverride($AlbumName, $mediaID);
-            }
-        }
-
-        $this->SendDebug('ClearImages', sprintf('Cleared %d temporary image(s) from album %s', count($removedMediaIDs), $AlbumName), 0);
-        $this->RefreshActiveAlbumPreservingImage($AlbumName);
+        $this->WriteJsonBuffer('TemporaryImages', []);
+        $this->SendDebug('ClearImages', sprintf('Cleared %d temporary image(s)', count($temporaryImages)), 0);
+        $this->RefreshState();
 
         return true;
     }
 
-    public function SetImageText(
-        string $AlbumName,
-        int $MediaID,
-        string $Title,
-        string $Description
-    ): bool {
-        if (!$this->AlbumExists($AlbumName) || !$this->ImageExistsInAlbum($AlbumName, $MediaID)) {
-            $this->SendDebug('SetImageText', sprintf('Album/image not found: %s / %d', $AlbumName, $MediaID), 0);
+    public function SetImageText(int $MediaID, string $Title, string $Description): bool
+    {
+        if (!$this->ImageExists($MediaID)) {
+            $this->SendDebug('SetImageText', sprintf('Image not found: %d', $MediaID), 0);
             return false;
         }
 
         $overrides = $this->ReadJsonBuffer('TextOverrides');
-
-        if (!isset($overrides[$AlbumName])) {
-            $overrides[$AlbumName] = [];
-        }
-
-        $overrides[$AlbumName][(string) $MediaID] = [
-            'Title' => $Title,
-            'Description' => $Description
-        ];
-
+        $overrides[(string) $MediaID] = ['Title' => $Title, 'Description' => $Description];
         $this->WriteJsonBuffer('TextOverrides', $overrides);
-        $this->SendDebug('SetImageText', sprintf('Updated temporary text for image %d in album %s', $MediaID, $AlbumName), 0);
-        $this->RefreshActiveAlbumPreservingImage($AlbumName);
+
+        $this->SendDebug('SetImageText', sprintf('Updated temporary text for image %d', $MediaID), 0);
+        $this->SendMeta();
 
         return true;
     }
 
-    private function ValidateConfiguration(array $albums): ?string
+    protected function ProcessHookData(): void
     {
-        $albumNames = [];
+        $token = (string) ($_GET['t'] ?? '');
+        $expectedToken = $this->ReadAttributeString('HookToken');
 
-        foreach ($albums as $albumIndex => $album) {
-            if (!is_array($album)) {
-                return sprintf($this->Translate('Album %d has an invalid configuration.'), $albumIndex + 1);
+        if ($expectedToken === '' || !hash_equals($expectedToken, $token)) {
+            $this->SendDebug('Hook', 'Rejected request with invalid token', 0);
+            http_response_code(403);
+            echo 'Forbidden';
+            return;
+        }
+
+        $mediaID = (int) ($_GET['media'] ?? 0);
+
+        // Only images shown by this instance are served, never arbitrary media objects.
+        if (!$this->ImageExists($mediaID)) {
+            $this->SendDebug('Hook', sprintf('Rejected request for MediaID %d', $mediaID), 0);
+            http_response_code(404);
+            echo 'Not found';
+            return;
+        }
+
+        $binary = base64_decode(IPS_GetMediaContent($mediaID), true);
+        $imageInfo = $binary === false ? false : @getimagesizefromstring($binary);
+
+        if ($binary === false || $imageInfo === false || !isset($imageInfo['mime'])) {
+            $this->SendDebug('Hook', sprintf('MediaID %d has no readable image content', $mediaID), 0);
+            http_response_code(415);
+            echo 'Unsupported media';
+            return;
+        }
+
+        // The URL contains the media version, so a changed image gets a new URL.
+        header('Content-Type: ' . $imageInfo['mime']);
+        header('Content-Length: ' . strlen($binary));
+        header('Cache-Control: private, max-age=31536000, immutable');
+        echo $binary;
+    }
+
+    private function VisualizationType(): int
+    {
+        // Fullscreen HTML tiles (type 2) exist from 9.1; older kernels use the normal HTML SDK (type 1).
+        return version_compare(IPS_GetKernelVersion(), '9.1', '>=') ? 2 : 1;
+    }
+
+    private function RefreshState(): void
+    {
+        $error = $this->ValidateConfiguration();
+
+        if ($error !== null) {
+            $this->SendDebug('Configuration', $error, 0);
+        }
+
+        $this->SetStatus($error === null ? 102 : 201);
+        $this->UpdateFormField('ConfigurationError', 'caption', $error ?? '');
+        $this->UpdateFormField('ConfigurationError', 'visible', $error !== null);
+
+        foreach ($this->GetMessageList() as $senderID => $messages) {
+            if ($senderID === 0) {
+                continue;
             }
 
-            $albumName = trim((string) ($album['Name'] ?? ''));
-
-            if ($albumName === '') {
-                return sprintf(
-                    $this->Translate('Album %d has no name. Please enter an album name or remove the album.'),
-                    $albumIndex + 1
-                );
-            }
-
-            if (isset($albumNames[$albumName])) {
-                return sprintf(
-                    $this->Translate('The album name "%s" is used more than once. Album names must be unique.'),
-                    $albumName
-                );
-            }
-
-            $albumNames[$albumName] = true;
-
-            $seenMediaIDs = [];
-            $images = $this->NormalizeImagesValue($album['Images'] ?? []);
-
-            foreach ($images as $imageIndex => $image) {
-                $mediaID = (int) ($image['MediaID'] ?? 0);
-
-                if ($mediaID === 0) {
-                    return sprintf(
-                        $this->Translate('Album "%s", image %d: No media object is selected. Please select an image or remove the empty entry.'),
-                        $albumName,
-                        $imageIndex + 1
-                    );
-                }
-
-                if (isset($seenMediaIDs[$mediaID])) {
-                    return sprintf(
-                        $this->Translate('Album "%s": MediaID %d is used more than once. Each image may only occur once within an album.'),
-                        $albumName,
-                        $mediaID
-                    );
-                }
-
-                $seenMediaIDs[$mediaID] = true;
-
-                if (!IPS_MediaExists($mediaID)) {
-                    return sprintf(
-                        $this->Translate('Album "%s": MediaID %d does not exist. Please select an existing image media object.'),
-                        $albumName,
-                        $mediaID
-                    );
-                }
-
-                $media = IPS_GetMedia($mediaID);
-
-                if ($media['MediaType'] !== MEDIATYPE_IMAGE) {
-                    return sprintf(
-                        $this->Translate('Album "%s": MediaID %d is not an image media object.'),
-                        $albumName,
-                        $mediaID
-                    );
-                }
+            foreach ($messages as $message) {
+                $this->UnregisterMessage($senderID, $message);
             }
         }
 
-        return null;
-    }
-
-    private function GetFullUpdateMessageByIndex(int $requestedIndex): string
-    {
-        $albumName = $this->GetActiveAlbumName();
-        $images = $this->GetAlbumImages($albumName);
-        $count = count($images);
-
-        if ($count === 0) {
-            $this->SetBuffer('CurrentMediaID', '0');
-            return $this->EncodeMessage($albumName, 0, 0, null);
+        foreach ($this->GetImages() as $image) {
+            $this->RegisterMessage($image['MediaID'], MM_UPDATE);
+            $this->RegisterMessage($image['MediaID'], MM_CHANGEFILE);
+            $this->RegisterMessage($image['MediaID'], MM_DELETE);
         }
 
-        $index = max(0, min($requestedIndex, $count - 1));
-
-        return $this->BuildImageMessage($albumName, $images, $index);
+        $this->SendMeta();
     }
 
-    private function GetFullUpdateMessageByMediaID(int $mediaID): string
+    private function SendMeta(): void
     {
-        $albumName = $this->GetActiveAlbumName();
-        $images = $this->GetAlbumImages($albumName);
-
-        if (count($images) === 0) {
-            $this->SetBuffer('CurrentMediaID', '0');
-            return $this->EncodeMessage($albumName, 0, 0, null);
-        }
-
-        foreach ($images as $index => $image) {
-            if ((int) $image['MediaID'] === $mediaID) {
-                return $this->BuildImageMessage($albumName, $images, $index);
-            }
-        }
-
-        return $this->BuildImageMessage($albumName, $images, 0);
+        $json = json_encode($this->BuildMeta(), JSON_UNESCAPED_UNICODE);
+        $this->UpdateVisualizationValue($json !== false ? $json : '{}');
     }
 
-    private function BuildImageMessage(string $albumName, array $images, int $index): string
+    private function BuildMeta(): array
     {
-        $image = $images[$index];
-
-        $this->SetBuffer('CurrentMediaID', (string) ((int) $image['MediaID']));
-
-        return $this->EncodeMessage(
-            $albumName,
-            count($images),
-            $index,
-            $image
-        );
-    }
-
-    private function EncodeMessage(
-        string $albumName,
-        int $count,
-        int $index,
-        ?array $image
-    ): string {
         $transition = $this->ReadPropertyString('Transition');
 
         if (!in_array($transition, ['None', 'Fade', 'Slide'], true)) {
             $transition = 'Fade';
         }
 
-        $duration = max(0, min(5000, $this->ReadPropertyInteger('TransitionDuration')));
+        $images = [];
 
-        $json = json_encode([
-            'album' => $albumName,
-            'count' => $count,
-            'index' => $index,
-            'image' => $image === null ? '' : $this->GetImageDataURL((int) $image['MediaID']),
-            'title' => $image === null ? '' : (string) $image['Title'],
-            'description' => $image === null ? '' : (string) $image['Description'],
+        foreach ($this->GetImages() as $image) {
+            $images[] = [
+                'id' => $image['MediaID'],
+                'url' => $this->GetImageURL($image['MediaID']),
+                'title' => $image['Title'],
+                'description' => $image['Description']
+            ];
+        }
+
+        return [
+            'images' => $images,
             'transition' => $transition,
-            'transitionDuration' => $duration,
+            'transitionDuration' => max(0, min(5000, $this->ReadPropertyInteger('TransitionDuration'))),
             'showCaptionsByDefault' => $this->ReadPropertyBoolean('ShowCaptionsByDefault'),
             'showNavigationArrows' => $this->ReadPropertyBoolean('ShowNavigationArrows'),
             'showImageCounter' => $this->ReadPropertyBoolean('ShowImageCounter'),
-            'tileZoomMode' => $this->ReadPropertyString('TileZoomMode'),
-            'showCaptionsLabel' => $this->Translate('Show image captions'),
-            'hideCaptionsLabel' => $this->Translate('Hide image captions'),
-            'emptyText' => $this->Translate('No images available'),
-            'ariaLabel' => $this->Translate('Image gallery')
-        ], JSON_UNESCAPED_UNICODE);
-
-        return $json !== false ? $json : '{}';
+            'showZoomButtons' => $this->ReadPropertyBoolean('ShowZoomButtons'),
+            'labels' => [
+                'showCaptions' => $this->Translate('Show image captions'),
+                'hideCaptions' => $this->Translate('Hide image captions'),
+                'empty' => $this->Translate('No images available'),
+                'unavailable' => $this->Translate('Image cannot be displayed'),
+                'gallery' => $this->Translate('Image gallery'),
+                'previous' => $this->Translate('Previous image'),
+                'next' => $this->Translate('Next image'),
+                'zoomIn' => $this->Translate('Zoom in'),
+                'zoomOut' => $this->Translate('Zoom out')
+            ]
+        ];
     }
 
-    private function GetAlbumsRaw(): array
+    private function ValidateConfiguration(): ?string
     {
-        $albums = json_decode($this->ReadPropertyString('Albums'), true);
+        $seenMediaIDs = [];
 
-        return is_array($albums) ? $albums : [];
-    }
+        foreach ($this->GetConfiguredImageEntries() as $index => $image) {
+            $mediaID = $image['MediaID'];
 
-    private function GetAlbums(): array
-    {
-        $result = [];
-
-        foreach ($this->GetAlbumsRaw() as $album) {
-            if (!is_array($album)) {
-                continue;
+            if ($mediaID <= 0) {
+                return sprintf(
+                    $this->Translate('Image %d: No media object is selected. Please select an image or remove the empty entry.'),
+                    $index + 1
+                );
             }
 
-            $name = trim((string) ($album['Name'] ?? ''));
+            if (isset($seenMediaIDs[$mediaID])) {
+                return sprintf(
+                    $this->Translate('MediaID %d is used more than once. Each image may only occur once.'),
+                    $mediaID
+                );
+            }
 
-            if ($name === '') {
+            $seenMediaIDs[$mediaID] = true;
+
+            if (!IPS_MediaExists($mediaID)) {
+                return sprintf(
+                    $this->Translate('MediaID %d does not exist. Please select an existing image media object.'),
+                    $mediaID
+                );
+            }
+
+            if (IPS_GetMedia($mediaID)['MediaType'] !== MEDIATYPE_IMAGE) {
+                return sprintf(
+                    $this->Translate('MediaID %d is not an image media object.'),
+                    $mediaID
+                );
+            }
+        }
+
+        return null;
+    }
+
+    private function GetConfiguredImageEntries(): array
+    {
+        return $this->NormalizeImages(json_decode($this->ReadPropertyString('Images'), true));
+    }
+
+    private function NormalizeImages(mixed $images): array
+    {
+        // Lists nested in a list column may arrive as JSON string.
+        if (is_string($images)) {
+            $images = json_decode($images, true);
+        }
+
+        if (!is_array($images)) {
+            return [];
+        }
+
+        $result = [];
+
+        foreach ($images as $image) {
+            if (!is_array($image)) {
                 continue;
             }
 
             $result[] = [
-                'Name' => $name,
-                'Images' => $this->NormalizeImagesValue($album['Images'] ?? [])
+                'MediaID' => (int) ($image['MediaID'] ?? 0),
+                'Title' => (string) ($image['Title'] ?? ''),
+                'Description' => (string) ($image['Description'] ?? '')
             ];
         }
 
         return $result;
     }
 
-    private function NormalizeImagesValue(mixed $images): array
+    // Configured images followed by temporary images, with temporary texts applied.
+    private function GetImages(): array
     {
-        if (is_string($images)) {
-            if ($images === '') {
-                return [];
-            }
+        $images = [];
 
-            $decoded = json_decode($images, true);
-            $images = is_array($decoded) ? $decoded : [];
-        }
-
-        return is_array($images) ? $images : [];
-    }
-
-    private function GetDefaultAlbumName(): string
-    {
-        $albums = $this->GetAlbums();
-
-        return count($albums) > 0 ? (string) $albums[0]['Name'] : '';
-    }
-
-    private function GetActiveAlbumName(): string
-    {
-        $activeAlbum = $this->GetBuffer('ActiveAlbum');
-
-        if ($activeAlbum !== '' && $this->AlbumExists($activeAlbum)) {
-            return $activeAlbum;
-        }
-
-        return $this->GetDefaultAlbumName();
-    }
-
-    private function AlbumExists(string $AlbumName): bool
-    {
-        foreach ($this->GetAlbums() as $album) {
-            if ($album['Name'] === $AlbumName) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function GetConfiguredImages(string $AlbumName): array
-    {
-        foreach ($this->GetAlbums() as $album) {
-            if ($album['Name'] !== $AlbumName) {
+        foreach (array_merge($this->GetConfiguredImageEntries(), $this->NormalizeImages($this->ReadJsonBuffer('TemporaryImages'))) as $image) {
+            if (isset($images[$image['MediaID']]) || !$this->IsImageMedia($image['MediaID'])) {
                 continue;
             }
 
-            $result = [];
-
-            foreach ($album['Images'] as $image) {
-                if (!is_array($image)) {
-                    continue;
-                }
-
-                $mediaID = (int) ($image['MediaID'] ?? 0);
-
-                if (!$this->IsImageMedia($mediaID)) {
-                    continue;
-                }
-
-                $result[] = [
-                    'MediaID' => $mediaID,
-                    'Title' => (string) ($image['Title'] ?? ''),
-                    'Description' => (string) ($image['Description'] ?? '')
-                ];
-            }
-
-            return $result;
-        }
-
-        return [];
-    }
-
-    private function GetAlbumImages(string $AlbumName): array
-    {
-        if ($AlbumName === '') {
-            return [];
-        }
-
-        $images = $this->GetConfiguredImages($AlbumName);
-        $temporaryImages = $this->ReadJsonBuffer('TemporaryImages');
-
-        if (isset($temporaryImages[$AlbumName]) && is_array($temporaryImages[$AlbumName])) {
-            foreach ($temporaryImages[$AlbumName] as $image) {
-                if (!is_array($image)) {
-                    continue;
-                }
-
-                $mediaID = (int) ($image['MediaID'] ?? 0);
-
-                if (!$this->IsImageMedia($mediaID)) {
-                    continue;
-                }
-
-                $alreadyPresent = false;
-
-                foreach ($images as $existingImage) {
-                    if ((int) $existingImage['MediaID'] === $mediaID) {
-                        $alreadyPresent = true;
-                        break;
-                    }
-                }
-
-                if (!$alreadyPresent) {
-                    $images[] = [
-                        'MediaID' => $mediaID,
-                        'Title' => (string) ($image['Title'] ?? ''),
-                        'Description' => (string) ($image['Description'] ?? '')
-                    ];
-                }
-            }
+            $images[$image['MediaID']] = $image;
         }
 
         $overrides = $this->ReadJsonBuffer('TextOverrides');
 
-        foreach ($images as &$image) {
-            $key = (string) $image['MediaID'];
-
-            if (isset($overrides[$AlbumName][$key]) && is_array($overrides[$AlbumName][$key])) {
-                $image['Title'] = (string) ($overrides[$AlbumName][$key]['Title'] ?? '');
-                $image['Description'] = (string) ($overrides[$AlbumName][$key]['Description'] ?? '');
+        foreach ($images as $mediaID => &$image) {
+            if (isset($overrides[(string) $mediaID]) && is_array($overrides[(string) $mediaID])) {
+                $image['Title'] = (string) ($overrides[(string) $mediaID]['Title'] ?? '');
+                $image['Description'] = (string) ($overrides[(string) $mediaID]['Description'] ?? '');
             }
         }
-
         unset($image);
 
-        return $images;
+        return array_values($images);
     }
 
-    private function ImageExistsInAlbum(string $AlbumName, int $MediaID): bool
+    private function ImageExists(int $MediaID): bool
     {
-        foreach ($this->GetAlbumImages($AlbumName) as $image) {
-            if ((int) $image['MediaID'] === $MediaID) {
+        foreach ($this->GetImages() as $image) {
+            if ($image['MediaID'] === $MediaID) {
                 return true;
             }
         }
@@ -647,97 +469,197 @@ class ImageSlider extends IPSModuleStrict
 
     private function IsImageMedia(int $MediaID): bool
     {
-        if ($MediaID <= 0 || !IPS_MediaExists($MediaID)) {
+        return $MediaID > 0
+            && IPS_MediaExists($MediaID)
+            && IPS_GetMedia($MediaID)['MediaType'] === MEDIATYPE_IMAGE;
+    }
+
+    private function RemoveTemporaryImage(int $MediaID): bool
+    {
+        $temporaryImages = $this->ReadJsonBuffer('TemporaryImages');
+        $remaining = array_values(array_filter(
+            $temporaryImages,
+            fn ($image) => (int) ($image['MediaID'] ?? 0) !== $MediaID
+        ));
+
+        if (count($remaining) === count($temporaryImages)) {
             return false;
         }
 
-        $media = IPS_GetMedia($MediaID);
+        $this->WriteJsonBuffer('TemporaryImages', $remaining);
+        $this->RemoveTextOverride($MediaID);
 
-        return $media['MediaType'] === MEDIATYPE_IMAGE;
+        return true;
     }
 
-    private function GetImageDataURL(int $MediaID): string
+    private function RemoveTextOverride(int $MediaID): void
     {
-        if (!$this->IsImageMedia($MediaID)) {
-            return '';
-        }
+        $overrides = $this->ReadJsonBuffer('TextOverrides');
 
-        $base64 = IPS_GetMediaContent($MediaID);
-        $binary = base64_decode($base64, true);
-
-        if ($binary === false) {
-            return '';
-        }
-
-        $imageInfo = @getimagesizefromstring($binary);
-
-        if ($imageInfo === false || !isset($imageInfo['mime'])) {
-            return '';
-        }
-
-        $mime = (string) $imageInfo['mime'];
-        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-
-        if (!in_array($mime, $allowedMimeTypes, true)) {
-            return '';
-        }
-
-        return 'data:' . $mime . ';base64,' . $base64;
-    }
-
-    private function RefreshActiveAlbumPreservingImage(string $AlbumName): void
-    {
-        if ($this->GetActiveAlbumName() !== $AlbumName) {
+        if (!isset($overrides[(string) $MediaID])) {
             return;
         }
 
-        $currentMediaID = (int) $this->GetBuffer('CurrentMediaID');
+        unset($overrides[(string) $MediaID]);
+        $this->WriteJsonBuffer('TextOverrides', $overrides);
+    }
 
-        if ($currentMediaID > 0) {
-            $message = $this->GetFullUpdateMessageByMediaID($currentMediaID);
-        } else {
-            $message = $this->GetFullUpdateMessageByIndex(0);
+    private function GetHookAddress(): string
+    {
+        // RegisterHook() expects the address without the /hook/ prefix.
+        return 'imageslider-' . $this->InstanceID;
+    }
+
+    private function GetImageURL(int $MediaID): string
+    {
+        return sprintf(
+            '/hook/%s?media=%d&v=%d&t=%s',
+            $this->GetHookAddress(),
+            $MediaID,
+            (int) (IPS_GetMedia($MediaID)['MediaUpdated'] ?? 0),
+            $this->ReadAttributeString('HookToken')
+        );
+    }
+
+    // One-time migration from 2.x: the first album becomes the image list,
+    // further albums remain in "Albums" until the user creates instances or discards them.
+    private function MigrateAlbums(): bool
+    {
+        if ($this->ReadAttributeBoolean('AlbumsMigrated')) {
+            return false;
         }
 
-        $this->UpdateVisualizationValue($message);
+        $this->WriteAttributeBoolean('AlbumsMigrated', true);
+        $albums = $this->GetLegacyAlbums();
+
+        if (count($albums) === 0) {
+            return false;
+        }
+
+        $this->SendDebug('Migration', sprintf('Migrating %d album(s) from version 2', count($albums)), 0);
+
+        if (count($albums) > 1) {
+            $this->LogMessage(
+                sprintf(
+                    $this->Translate('Image Slider %d: Multiple albums are no longer supported. Album "%s" was taken over. Further albums can be created as separate instances in the configuration form.'),
+                    $this->InstanceID,
+                    $albums[0]['Name']
+                ),
+                KL_WARNING
+            );
+        }
+
+        if (count($this->GetConfiguredImageEntries()) === 0) {
+            IPS_SetProperty($this->InstanceID, 'Images', (string) json_encode($albums[0]['Images']));
+        }
+
+        IPS_SetProperty($this->InstanceID, 'Albums', (string) json_encode(array_slice($albums, 1)));
+        IPS_ApplyChanges($this->InstanceID);
+
+        return true;
+    }
+
+    private function GetLegacyAlbums(): array
+    {
+        $albums = json_decode($this->ReadPropertyString('Albums'), true);
+
+        if (!is_array($albums)) {
+            return [];
+        }
+
+        $result = [];
+
+        foreach ($albums as $album) {
+            if (!is_array($album)) {
+                continue;
+            }
+
+            $result[] = [
+                'Name' => trim((string) ($album['Name'] ?? '')),
+                'Images' => $this->NormalizeImages($album['Images'] ?? [])
+            ];
+        }
+
+        return $result;
+    }
+
+    private function GetLegacyAlbumFormItems(array $albums): array
+    {
+        $items = [
+            [
+                'type' => 'Label',
+                'caption' => $this->Translate('This instance contained further albums. Multiple albums are no longer supported. Each album can be created as a separate instance; it is placed next to this instance and takes over its display settings.')
+            ]
+        ];
+
+        foreach ($albums as $index => $album) {
+            $name = $album['Name'] !== '' ? $album['Name'] : sprintf($this->Translate('Album %d'), $index + 2);
+            $items[] = [
+                'type' => 'RowLayout',
+                'items' => [
+                    [
+                        'type' => 'Label',
+                        'width' => '400px',
+                        'caption' => sprintf($this->Translate('%s (%d images)'), $name, count($album['Images']))
+                    ],
+                    [
+                        'type' => 'Button',
+                        'caption' => 'Create as new instance',
+                        'onClick' => 'IPS_RequestAction($id, \'CreateInstanceFromAlbum\', ' . var_export((string) $index, true) . ');'
+                    ]
+                ]
+            ];
+        }
+
+        $items[] = [
+            'type' => 'Button',
+            'caption' => 'Discard old albums',
+            'confirm' => 'The remaining albums will be deleted permanently. Continue?',
+            'onClick' => 'IPS_RequestAction($id, \'DiscardLegacyAlbums\', \'\');'
+        ];
+
+        return $items;
+    }
+
+    private function CreateInstanceFromAlbum(string $Index): void
+    {
+        $albums = $this->GetLegacyAlbums();
+        $index = (int) $Index;
+
+        if (!ctype_digit($Index) || !isset($albums[$index])) {
+            echo $this->Translate('The album no longer exists.');
+            return;
+        }
+
+        $album = $albums[$index];
+        $instanceID = IPS_CreateInstance(self::MODULE_ID);
+        IPS_SetName($instanceID, $album['Name'] !== '' ? $album['Name'] : IPS_GetName($this->InstanceID));
+        IPS_SetParent($instanceID, IPS_GetParent($this->InstanceID));
+        IPS_SetProperty($instanceID, 'Images', (string) json_encode($album['Images']));
+
+        foreach (self::SHARED_PROPERTIES as $property) {
+            IPS_SetProperty($instanceID, $property, IPS_GetProperty($this->InstanceID, $property));
+        }
+
+        IPS_ApplyChanges($instanceID);
+
+        array_splice($albums, $index, 1);
+        IPS_SetProperty($this->InstanceID, 'Albums', (string) json_encode($albums));
+        IPS_ApplyChanges($this->InstanceID);
+        $this->ReloadForm();
+
+        echo sprintf($this->Translate('Instance %d "%s" was created.'), $instanceID, IPS_GetName($instanceID));
     }
 
     private function ReadJsonBuffer(string $Name): array
     {
-        $json = $this->GetBuffer($Name);
-
-        if ($json === '') {
-            return [];
-        }
-
-        $value = json_decode($json, true);
+        $value = json_decode($this->GetBuffer($Name), true);
 
         return is_array($value) ? $value : [];
     }
 
     private function WriteJsonBuffer(string $Name, array $Value): void
     {
-        $this->SetBuffer(
-            $Name,
-            json_encode($Value, JSON_UNESCAPED_UNICODE)
-        );
-    }
-
-    private function RemoveTextOverride(string $AlbumName, int $MediaID): void
-    {
-        $overrides = $this->ReadJsonBuffer('TextOverrides');
-        $key = (string) $MediaID;
-
-        if (!isset($overrides[$AlbumName][$key])) {
-            return;
-        }
-
-        unset($overrides[$AlbumName][$key]);
-
-        if (isset($overrides[$AlbumName]) && count($overrides[$AlbumName]) === 0) {
-            unset($overrides[$AlbumName]);
-        }
-
-        $this->WriteJsonBuffer('TextOverrides', $overrides);
+        $this->SetBuffer($Name, (string) json_encode($Value, JSON_UNESCAPED_UNICODE));
     }
 }

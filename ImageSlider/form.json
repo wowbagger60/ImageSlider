@@ -7,67 +7,47 @@
             "visible": false
         },
         {
-            "type": "Label",
-            "caption": "The first album is the default album. Albums and images can be sorted using drag and drop."
+            "type": "ExpansionPanel",
+            "name": "LegacyAlbums",
+            "caption": "Albums from version 2",
+            "expanded": true,
+            "visible": false,
+            "items": []
         },
         {
             "type": "List",
-            "name": "Albums",
-            "caption": "Albums",
-            "rowCount": 6,
+            "name": "Images",
+            "caption": "Images",
+            "rowCount": 10,
             "add": true,
             "delete": true,
             "changeOrder": true,
             "columns": [
                 {
-                    "caption": "Album",
-                    "name": "Name",
-                    "width": "auto",
+                    "caption": "Media",
+                    "name": "MediaID",
+                    "width": "180px",
+                    "add": 0,
+                    "edit": {
+                        "type": "SelectMedia"
+                    }
+                },
+                {
+                    "caption": "Title",
+                    "name": "Title",
+                    "width": "220px",
                     "add": "",
                     "edit": {
                         "type": "ValidationTextBox"
                     }
                 },
                 {
-                    "caption": "Images",
-                    "name": "Images",
-                    "width": "120px",
-                    "add": [],
+                    "caption": "Description",
+                    "name": "Description",
+                    "width": "auto",
+                    "add": "",
                     "edit": {
-                        "type": "List",
-                        "rowCount": 8,
-                        "add": true,
-                        "delete": true,
-                        "changeOrder": true,
-                        "columns": [
-                            {
-                                "caption": "Media",
-                                "name": "MediaID",
-                                "width": "180px",
-                                "add": 0,
-                                "edit": {
-                                    "type": "SelectMedia"
-                                }
-                            },
-                            {
-                                "caption": "Title",
-                                "name": "Title",
-                                "width": "220px",
-                                "add": "",
-                                "edit": {
-                                    "type": "ValidationTextBox"
-                                }
-                            },
-                            {
-                                "caption": "Description",
-                                "name": "Description",
-                                "width": "auto",
-                                "add": "",
-                                "edit": {
-                                    "type": "ValidationTextBox"
-                                }
-                            }
-                        ]
+                        "type": "ValidationTextBox"
                     }
                 }
             ]
@@ -115,23 +95,13 @@
             "caption": "Show image counter"
         },
         {
-            "type": "Select",
-            "name": "TileZoomMode",
-            "caption": "Zoom in tile",
-            "options": [
-                {
-                    "caption": "Zoom buttons",
-                    "value": "Buttons"
-                },
-                {
-                    "caption": "Pinch gestures",
-                    "value": "Pinch"
-                }
-            ]
+            "type": "CheckBox",
+            "name": "ShowZoomButtons",
+            "caption": "Show zoom buttons in the tile"
         },
         {
             "type": "Label",
-            "caption": "Pinch gestures in the tile currently work reliably only on non-scrollable Symcon pages."
+            "caption": "Pinch zoom is always available. In the Symcon app, iOS takes over two-finger gestures on scrollable pages; the zoom buttons are the alternative there."
         }
     ]
 }
